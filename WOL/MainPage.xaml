@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:skia="clr-namespace:SkiaSharp.Extended.UI.Controls;assembly=SkiaSharp.Extended.UI"
+             x:Class="WOL.MainPage">
+
+    <ScrollView>
+        <VerticalStackLayout
+            Spacing="25"
+            Padding="30,0"
+            VerticalOptions="Center">
+
+            <Label
+                x:Name="statusLabel"
+                TextColor="BlueViolet"
+                FontSize="25"
+                FontAttributes="Bold"
+                HorizontalOptions="Center" />
+
+            <Entry 
+                x:Name="userHost"
+                Text="192.168.0.110" />
+            
+            <Entry 
+                x:Name="userMAC"
+                Text="08:62:66:35:DF:FA" />
+
+            <Label
+                x:Name="online"
+                TextColor="LimeGreen"
+                Text="Device Online"
+                FontSize="20"
+                IsVisible="{Binding IsDeviceOn}"
+                FontAttributes="Italic"
+                HorizontalOptions="Center" />
+
+            <skia:SKLottieView
+                x:Name="loader"
+                IsVisible="{Binding IsLoaderOn}"
+                Source="loader.json"
+                RepeatCount="-1"
+                WidthRequest="300"
+                HeightRequest="300"
+                HorizontalOptions="Center" />
+
+            <ImageButton
+                x:Name="powerButton"
+                Source="power_on.png"
+                WidthRequest="200"
+                HeightRequest="200"
+                Clicked="OnPowerButtonClicked"
+                HorizontalOptions="Center" />
+
+            <Label
+                Text="WOL"
+                FontSize="32"
+                HorizontalOptions="Center" />
+
+            <Button
+                x:Name="btnExit"
+                Text="Exit"
+                WidthRequest="100"
+                Clicked="OnBtnClicked"
+                HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
