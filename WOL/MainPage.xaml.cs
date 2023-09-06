@@ -22,30 +22,68 @@ public partial class MainPage : ContentPage
         statusCheckTimer.Elapsed += OnStatusCheckTimerElapsed;
     }
 
-    private void OnStatusCheckTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+    private async void OnStatusCheckTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
     {
         try
         {
+            Vm.CurrentStatus = "Checking Device Status...";
+            await Task.Delay(400);
+
             using (var client = new HttpClient())
             {
-                var response = client.GetAsync(new Uri("http://192.168.0.110:4001"));
+                var url = $"http://{userHost.Text}:4001";
+                var response = client.GetAsync(new Uri(url)).GetAwaiter().GetResult();
 
-                if (response.Result.IsSuccessStatusCode)
+                if (response.IsSuccessStatusCode)
                 {
+                    Vm.IsDeviceOn = true;
                     statusCheckTimer.Stop();
                     Vm.IsLoaderOn = false;
-                    Vm.IsDeviceOn = true;
+                    Vm.IsVisibleStatusLabel = false;
                 }
                 else
                 {
-                    statusLabel.Text = "...";
+                    Vm.CurrentStatus = "Offline";
+                    await Task.Delay(300);
                 }
 
             }
         }
         catch (Exception)
         {
-            statusLabel.Text = "Error...";
+            Vm.CurrentStatus = "Failed to check Device Status";
+            statusCheckTimer.Stop();
+            powerButton.IsVisible = true;
+            Vm.IsLoaderOn = false;
+            await Task.Delay(200);
+        }
+    }
+
+    public async Task<bool> IsServerReachable()
+    {
+        try
+        {
+            Vm.CurrentStatus = "Pinging to server...";
+            await Task.Delay(400);
+
+            using (Ping ping = new Ping())
+            {
+                PingReply reply = ping.Send(IPAddress.Parse(userHost.Text));
+
+                if (reply != null && reply.Status == IPStatus.Success)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+        catch (PingException)
+        {
+            Console.WriteLine($"Error in connecting server...");
+            return false;
         }
     }
 
@@ -54,19 +92,31 @@ public partial class MainPage : ContentPage
         Application.Current.Quit();
 	}
 
-    private void OnPowerButtonClicked(object sender, EventArgs e)
+    private async void OnPowerButtonClicked(object sender, EventArgs e)
 	{
         if (powerButton.Source.ToString() == "File: power_on.png")
         {
-            powerButton.IsVisible = false;
-            Vm.IsLoaderOn = true;
-            SendMagicBytes();
+            var isServerReachable = await IsServerReachable();
+
+            if (isServerReachable)
+            {
+                powerButton.IsVisible = false;
+                Vm.IsLoaderOn = true;
+                SendMagicBytes();
+            }
+            else
+            {
+                Vm.CurrentStatus = "Server is not reachable.";
+            }
+
         }
     }
 
-	private void SendMagicBytes()
+	private async void SendMagicBytes()
 	{
-        statusLabel.Text = "Magic Byte Initiated...";
+        Vm.CurrentStatus = "Magic Byte Initiated...";
+        await Task.Delay(400);
+
         // Convert the MAC address to bytes
         var macBytes = PhysicalAddress.Parse(userMAC.Text).GetAddressBytes();
 
@@ -90,18 +140,23 @@ public partial class MainPage : ContentPage
 
         try
         {
-            using (var client = new UdpClient())
+            Vm.CurrentStatus = "Sending Packet...";
+            await Task.Delay(400);
+            for (int i = 0; i < 5; i++)
             {
-                statusLabel.Text = "Sending...";
-                client.Send(magicPacket, magicPacket.Length, IPAddress.Parse(userHost.Text).ToString(), 9);
+                using (var client = new UdpClient())
+                {
+                    client.Send(magicPacket, magicPacket.Length, IPAddress.Parse(userHost.Text).ToString(), 9);
+                }
+                Vm.CurrentStatus = "Packet Sent Successful";
+                await Task.Delay(400);
             }
-            statusLabel.Text = "Packet Sent Successful";
 
             statusCheckTimer.Start();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            statusLabel.Text = "Failed to send packet...";
+            Vm.CurrentStatus = "Failed to send packet...";
             Vm.IsLoaderOn = false;
             powerButton.IsVisible = true;
         }

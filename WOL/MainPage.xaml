@@ -10,29 +10,39 @@
             Padding="30,0"
             VerticalOptions="Center">
 
+            <ImageButton
+                Source="online.png"
+                WidthRequest="100"
+                HeightRequest="100"
+                IsVisible="{Binding IsDeviceOn}"
+                HorizontalOptions="Center" />
+            
+            <Label
+                x:Name="online"
+                TextColor="LimeGreen"
+                Text="Device is Online"
+                FontSize="30"
+                IsVisible="{Binding IsDeviceOn}"
+                FontAttributes="Bold"
+                HorizontalOptions="Center" />
+
             <Label
                 x:Name="statusLabel"
+                Text="{Binding CurrentStatus}"
+                HorizontalTextAlignment="Center"
                 TextColor="BlueViolet"
                 FontSize="25"
                 FontAttributes="Bold"
+                IsVisible="{Binding IsVisibleStatusLabel}"
                 HorizontalOptions="Center" />
 
             <Entry 
                 x:Name="userHost"
-                Text="192.168.0.110" />
-            
+                Text="103.87.215.122" />
+
             <Entry 
                 x:Name="userMAC"
                 Text="08:62:66:35:DF:FA" />
-
-            <Label
-                x:Name="online"
-                TextColor="LimeGreen"
-                Text="Device Online"
-                FontSize="20"
-                IsVisible="{Binding IsDeviceOn}"
-                FontAttributes="Italic"
-                HorizontalOptions="Center" />
 
             <skia:SKLottieView
                 x:Name="loader"

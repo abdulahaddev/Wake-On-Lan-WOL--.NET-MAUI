@@ -6,6 +6,8 @@ namespace WOL
     {
         private bool _isDeviceOn;
         private bool _isLoaderOn;
+        private bool _isVisibleStatusLabel = true;
+        private string _currentStatus = string.Empty;
 
         public bool IsDeviceOn
         {
@@ -29,6 +31,32 @@ namespace WOL
                 {
                     _isLoaderOn = value;
                     OnPropertyChanged(nameof(IsLoaderOn));
+                }
+            }
+        }
+
+        public string CurrentStatus
+        {
+            get { return _currentStatus; }
+            set
+            {
+                if (_currentStatus != value)
+                {
+                    _currentStatus = value;
+                    OnPropertyChanged(nameof(CurrentStatus));
+                }
+            }
+        }
+
+        public bool IsVisibleStatusLabel
+        {
+            get { return _isVisibleStatusLabel; }
+            set
+            {
+                if (_isVisibleStatusLabel != value)
+                {
+                    _isVisibleStatusLabel = value;
+                    OnPropertyChanged(nameof(IsVisibleStatusLabel));
                 }
             }
         }
