@@ -7,7 +7,9 @@ namespace WOL;
 public partial class MainPage : ContentPage
 {
     private System.Timers.Timer statusCheckTimer;
+    private bool isStatusCheckRunning = false;
     public MainPageViewModel Vm { get; set; } = new();
+
     public MainPage()
 	{
 		InitializeComponent();
@@ -16,7 +18,7 @@ public partial class MainPage : ContentPage
         // Initialize the timer
         statusCheckTimer = new System.Timers.Timer
         {
-            Interval = TimeSpan.FromSeconds(5).TotalMilliseconds,
+            Interval = TimeSpan.FromSeconds(2).TotalMilliseconds,
             AutoReset = true
         };
         statusCheckTimer.Elapsed += OnStatusCheckTimerElapsed;
@@ -24,20 +26,26 @@ public partial class MainPage : ContentPage
 
     private async void OnStatusCheckTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
     {
+        if (isStatusCheckRunning)
+        {
+            return;
+        }
         try
         {
+            isStatusCheckRunning = true;
+
             Vm.CurrentStatus = "Checking Device Status...";
             await Task.Delay(400);
 
             using (var client = new HttpClient())
             {
                 var url = $"http://{userHost.Text}:4001";
-                var response = client.GetAsync(new Uri(url)).GetAwaiter().GetResult();
+                var response = await client.GetAsync(new Uri(url));
 
                 if (response.IsSuccessStatusCode)
                 {
-                    Vm.IsDeviceOn = true;
                     statusCheckTimer.Stop();
+                    Vm.IsDeviceOn = true;
                     Vm.IsLoaderOn = false;
                     Vm.IsVisibleStatusLabel = false;
                 }
@@ -51,8 +59,8 @@ public partial class MainPage : ContentPage
         }
         catch (Exception)
         {
-            Vm.CurrentStatus = "Failed to check Device Status";
             statusCheckTimer.Stop();
+            Vm.CurrentStatus = "Failed to check Device Status";
             powerButton.IsVisible = true;
             Vm.IsLoaderOn = false;
             await Task.Delay(200);
@@ -82,7 +90,6 @@ public partial class MainPage : ContentPage
         }
         catch (PingException)
         {
-            Console.WriteLine($"Error in connecting server...");
             return false;
         }
     }
