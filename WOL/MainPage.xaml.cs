@@ -8,6 +8,7 @@ public partial class MainPage : ContentPage
 {
     private System.Timers.Timer statusCheckTimer;
     private bool isStatusCheckRunning = false;
+    private DateTime _startTime { get; set; }
     public MainPageViewModel Vm { get; set; } = new();
 
     public MainPage()
@@ -30,6 +31,17 @@ public partial class MainPage : ContentPage
         {
             return;
         }
+        TimeSpan elapsedTime = DateTime.Now - _startTime;
+
+        if (elapsedTime.TotalSeconds > 80)
+        {
+            Vm.IsLoaderOn = false;
+
+            Vm.CurrentStatus = "Application is shutting down...";
+            await Task.Delay(1000);
+            Application.Current.Quit();
+        }
+
         try
         {
             isStatusCheckRunning = true;
@@ -39,8 +51,7 @@ public partial class MainPage : ContentPage
 
             using (var client = new HttpClient())
             {
-                var url = $"http://{userHost.Text}:4001";
-                var response = await client.GetAsync(new Uri(url));
+                var response = await client.GetAsync(new Uri(userHost.Text));
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -51,7 +62,7 @@ public partial class MainPage : ContentPage
                 }
                 else
                 {
-                    Vm.CurrentStatus = "Offline";
+                    Vm.CurrentStatus = "Device Offline";
                     await Task.Delay(300);
                 }
 
@@ -61,9 +72,12 @@ public partial class MainPage : ContentPage
         {
             statusCheckTimer.Stop();
             Vm.CurrentStatus = "Failed to check Device Status";
-            powerButton.IsVisible = true;
             Vm.IsLoaderOn = false;
-            await Task.Delay(200);
+            await Task.Delay(600);
+
+            Vm.CurrentStatus = "Application is shutting down...";
+            await Task.Delay(4000);
+            Application.Current.Quit();
         }
     }
 
@@ -71,12 +85,29 @@ public partial class MainPage : ContentPage
     {
         try
         {
+            Vm.CurrentStatus = $"Connecting to server...";
+            await Task.Delay(400);
+
+            Uri uri = new Uri(userHost.Text);
+            string domain = uri.Host;
+            IPAddress[] ipAddresses = Dns.GetHostAddresses(domain);
+
+            if (ipAddresses.Length == 0)
+            {
+                Vm.CurrentStatus = $"Invalid Server!";
+                await Task.Delay(500);
+
+                return false;
+            }
+
+            IPAddress ipAddress = ipAddresses[0];
+
             Vm.CurrentStatus = "Pinging to server...";
             await Task.Delay(400);
 
             using (Ping ping = new Ping())
             {
-                PingReply reply = ping.Send(IPAddress.Parse(userHost.Text));
+                PingReply reply = ping.Send(ipAddress);
 
                 if (reply != null && reply.Status == IPStatus.Success)
                 {
@@ -107,9 +138,67 @@ public partial class MainPage : ContentPage
 
             if (isServerReachable)
             {
-                powerButton.IsVisible = false;
-                Vm.IsLoaderOn = true;
-                SendMagicBytes();
+                Vm.CurrentStatus = "Server is online";
+                await Task.Delay(400);
+
+                Vm.CurrentStatus = "Checking Device Status...";
+                await Task.Delay(400);
+
+                try
+                {
+                    Uri uri = new Uri(userHost.Text);
+                    string domain = uri.Host;
+
+                    var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+                    //using (Ping ping = new Ping())
+                    using (var client = new HttpClient())
+                    {
+                        //PingReply reply = ping.Send(domain);
+
+
+                        //if (reply.Status != IPStatus.Success)
+                        //{
+                        //    Vm.CurrentStatus = "Device Offline";
+                        //    await Task.Delay(400);
+
+                        //    powerButton.IsVisible = false;
+                        //    Vm.IsLoaderOn = true;
+                        //    SendMagicBytes();
+                        //    return;
+                        //}
+
+                        var response = await client.GetAsync(new Uri(userHost.Text), cancellationTokenSource.Token);
+
+                        if (response.IsSuccessStatusCode)
+                        {
+                            statusCheckTimer.Stop();
+                            Vm.IsDeviceOn = true;
+                            Vm.IsLoaderOn = false;
+                            Vm.IsVisibleStatusLabel = false;
+                            powerButton.Source = "power_off.png";
+                        }
+                        else
+                        {
+                            Vm.CurrentStatus = "Device Offline";
+                            await Task.Delay(400);
+
+                            powerButton.IsVisible = false;
+                            Vm.IsLoaderOn = true;
+                            SendMagicBytes();
+                        }
+
+                    }
+                }
+                catch (Exception)
+                {
+                    Vm.CurrentStatus = "Device Offline";
+                    await Task.Delay(400);
+
+                    powerButton.IsVisible = false;
+                    Vm.IsLoaderOn = true;
+                    SendMagicBytes();
+                }                
             }
             else
             {
@@ -117,6 +206,11 @@ public partial class MainPage : ContentPage
             }
 
         }
+        else if (powerButton.Source.ToString() == "File: power_off.png")
+        {
+            await IntiateShutdown();
+        }
+        else { }
     }
 
 	private async void SendMagicBytes()
@@ -149,17 +243,22 @@ public partial class MainPage : ContentPage
         {
             Vm.CurrentStatus = "Sending Packet...";
             await Task.Delay(400);
+
             for (int i = 0; i < 5; i++)
             {
                 using (var client = new UdpClient())
                 {
-                    client.Send(magicPacket, magicPacket.Length, IPAddress.Parse(userHost.Text).ToString(), 9);
+                    Uri uri = new Uri(userHost.Text);
+                    string domain = uri.Host;
+
+                    client.Send(magicPacket, magicPacket.Length, domain, 9);
                 }
                 Vm.CurrentStatus = "Packet Sent Successful";
                 await Task.Delay(400);
             }
 
             statusCheckTimer.Start();
+            _startTime = DateTime.Now;
         }
         catch (Exception)
         {
@@ -167,5 +266,45 @@ public partial class MainPage : ContentPage
             Vm.IsLoaderOn = false;
             powerButton.IsVisible = true;
         }
+    }
+
+    private async Task IntiateShutdown()
+    {
+        try
+        {
+            using (var client = new HttpClient())
+            {
+                Vm.IsLoaderOn = true;
+                Vm.CurrentStatus = "Initiating shutdown request...";
+                await Task.Delay(400);
+
+                client.DefaultRequestHeaders.Add("key", "default");
+
+                var response = await client.PostAsync(userHost.Text, new StringContent(""));
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Vm.IsLoaderOn = false;
+                    Vm.CurrentStatus = "Shutdown request success.!";
+                    await Task.Delay(5000);
+
+                    Vm.CurrentStatus = "Application is shutting down...";
+                    await Task.Delay(5000);
+                    Application.Current.Quit();
+                }
+                else
+                {
+                    Vm.CurrentStatus = "Failed to Initiate Shutdown!";
+                    await Task.Delay(800);
+                }
+
+            }
+        }
+        catch (Exception)
+        {
+            Vm.CurrentStatus = "Failed to Initiate Shutdown!";
+            await Task.Delay(800);
+        }
+        
     }
 }

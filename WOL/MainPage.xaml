@@ -38,7 +38,7 @@
 
             <Entry 
                 x:Name="userHost"
-                Text="103.87.215.122" />
+                Text="https://home.ahad.nabatechworld.com" />
 
             <Entry 
                 x:Name="userMAC"
