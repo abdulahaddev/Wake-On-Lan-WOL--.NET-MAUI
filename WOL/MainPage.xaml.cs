@@ -32,13 +32,16 @@ public partial class MainPage : ContentPage
             return;
         }
         TimeSpan elapsedTime = DateTime.Now - _startTime;
+        Vm.CurrentStatus = elapsedTime.ToString();
 
         if (elapsedTime.TotalSeconds > 80)
         {
+            statusCheckTimer.Stop();
             Vm.IsLoaderOn = false;
-
-            Vm.CurrentStatus = "Application is shutting down...";
+            Vm.CurrentStatus = "Device is offline!";
             await Task.Delay(1000);
+            Vm.CurrentStatus = "Application is shutting down...";
+            await Task.Delay(3000);
             Application.Current.Quit();
         }
 
@@ -46,14 +49,21 @@ public partial class MainPage : ContentPage
         {
             isStatusCheckRunning = true;
 
-            Vm.CurrentStatus = "Checking Device Status...";
+            Vm.CurrentStatus = "Checking Device Status.";
             await Task.Delay(400);
+
+            Uri uri = new(userHost.Text);
+            var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
             using (var client = new HttpClient())
             {
-                var response = await client.GetAsync(new Uri(userHost.Text));
+                Vm.CurrentStatus = "Checking Device Status..";
+                await Task.Delay(400)
+                    ;
+                var response = await client.GetAsync(uri, cancellationTokenSource.Token);
+                var responseMessage = await response.Content.ReadAsStringAsync();
 
-                if (response.IsSuccessStatusCode)
+                if (response.IsSuccessStatusCode && responseMessage.Contains("Home server"))
                 {
                     statusCheckTimer.Stop();
                     Vm.IsDeviceOn = true;
@@ -62,7 +72,8 @@ public partial class MainPage : ContentPage
                 }
                 else
                 {
-                    Vm.CurrentStatus = "Device Offline";
+                    isStatusCheckRunning = false;
+                    Vm.CurrentStatus = "Checking Device Status...";
                     await Task.Delay(300);
                 }
 
@@ -146,31 +157,16 @@ public partial class MainPage : ContentPage
 
                 try
                 {
-                    Uri uri = new Uri(userHost.Text);
-                    string domain = uri.Host;
-
+                    Uri uri = new(userHost.Text);
                     var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-                    //using (Ping ping = new Ping())
                     using (var client = new HttpClient())
                     {
-                        //PingReply reply = ping.Send(domain);
 
+                        var response = await client.GetAsync(uri, cancellationTokenSource.Token);
+                        var responseMessage = await response.Content.ReadAsStringAsync();
 
-                        //if (reply.Status != IPStatus.Success)
-                        //{
-                        //    Vm.CurrentStatus = "Device Offline";
-                        //    await Task.Delay(400);
-
-                        //    powerButton.IsVisible = false;
-                        //    Vm.IsLoaderOn = true;
-                        //    SendMagicBytes();
-                        //    return;
-                        //}
-
-                        var response = await client.GetAsync(new Uri(userHost.Text), cancellationTokenSource.Token);
-
-                        if (response.IsSuccessStatusCode)
+                        if (response.IsSuccessStatusCode && responseMessage.Contains("Home server"))
                         {
                             statusCheckTimer.Stop();
                             Vm.IsDeviceOn = true;
